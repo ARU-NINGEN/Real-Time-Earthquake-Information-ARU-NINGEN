@@ -1,0 +1,15 @@
+{
+  "name": "リアルタイムの地震情報　Ver. 1.0 Beta 1",
+  "short_name": "リアルタイム地震",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "icon.jpeg",
+      "sizes": "1148x1148",
+      "type": "image/jpeg"
+    }
+  ]
+}
