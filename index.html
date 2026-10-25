@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>リアルタイム地震・津波情報</title>
+    <!-- manifest.jsonを読み込む -->
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f0f2f5; }
+        button { padding: 15px 30px; font-size: 18px; font-weight: bold; background: #007aff; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        textarea { width: 100%; max-width: 500px; height: 150px; margin-top: 20px; padding: 10px; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <h1>リアルタイム地震・津波情報</h1>
+    <p>まずはiPhoneのSafariで開き、「ホーム画面に追加」してそこから起動し直してください。</p>
+    
+    <button id="btn">通知を許可してトークンを出す</button>
+    
+    <p>👇 出てきた文字列を丸ごとコピーしてGitHubのSecretsに貼るべし！</p>
+    <textarea id="token-box" readonly placeholder="ここに宛先データ（トークン）が出ます"></textarea>
+
+    <script>
+        // ①裏で動く「Service Worker(sw.js)」を登録する
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+            .then(() => console.log('sw.jsの登録に成功しました！'))
+            .catch(err => console.error('登録失敗:', err));
+        }
+
+        const btn = document.getElementById('btn');
+        const tokenBox = document.getElementById('token-box');
+
+        // 公開鍵（あとで本物に書き換えます）
+        const PUBLIC_KEY = "★ここにあなたの公開鍵を入れる★";
+
+        btn.addEventListener('click', async () => {
+            // ② ユーザーに「通知いい？」と許可を取る
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                alert('通知が拒否されました。iPhoneの設定アプリからSafari（またはこのアプリ）の通知を許可してね');
+                return;
+            }
+
+            // ③ 通知を届けるための「宛先URLと暗号のセット（サブスクリプション）」を作る
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(PUBLIC_KEY)
+            });
+
+            // ④ 画面のテキストエリアに出力する（これを手動で回収する！）
+            tokenBox.value = JSON.stringify(subscription);
+            alert('トークンが出ました！コピーしてね！');
+        });
+
+        // 暗号鍵の型を変換するための決まり文句（深く考えなくてOK！）
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+    </script>
+</body>
+</html>
