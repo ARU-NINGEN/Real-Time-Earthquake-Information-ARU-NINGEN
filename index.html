@@ -194,5 +194,58 @@
         fetchEEW();
         fetchLatestQuake();
     </script>
+    <script>
+        // ブラウザでプッシュ通知を有効にして、Cloudflare Workersに登録する関数
+async function subscribeToPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    alert('このブラウザはプッシュ通知に対応していません');
+    return;
+  }
+
+  // 1. Service Workerの登録を待つ
+  const registration = await navigator.serviceWorker.ready;
+
+  // 2. Base64の公開鍵をUint8Array形式に変換するおまじない
+  function urlB64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(0);
+    }
+    return outputArray;
+  }
+
+  // ★ここにさっきキー生成サイトでコピーした「Public key」を貼り付けます
+  const publicVapidKey = 'BМ41LbqZlJZ05beJKfJLyEDFmCsH4l_61kUm0pDl3Lо9c0jqgdAсМdRnGv8v9jxoRk_503nSvy2ng1VRCQvBrjE';
+
+  try {
+    // 3. ブラウザにプッシュ通知の許可を求め、購読情報を取得
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlB64ToUint8Array(publicVapidKey)
+    });
+
+    // 4. 取得した購読情報をさっき作ったCloudflare Workersへ送信する
+    const response = await fetch('https://あなたのWorkerの名前.workers.dev/subscribe', {
+      method: 'POST',
+      body: JSON.stringify(subscription),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.ok) {
+      alert('プッシュ通知の登録が成功しました！');
+    } else {
+      alert('サーバーへの登録に失敗しました。');
+    }
+  } catch (error) {
+    console.error('通知の購読に失敗しました:', error);
+    alert('通知の許可が拒否されたか、エラーが発生しました。');
+  }
+}
+    </script>
 </body>
 </html>
