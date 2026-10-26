@@ -1,9 +1,153 @@
 <!DOCTYPE html>
 <html lang="ja">
-    <head>
-        <meta charset="UTF-8">
-        <title>地震・津波情報</title>
-        <!-- manifest.jsonの読み込み -->
-        <link rel="manifest" href="manifest.json">
-    </head>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>リアルタイム地震・津波情報</title>
+    
+    <!-- アプリの設計図（manifest.json）の紐付け -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- スマホで見たときのテーマカラー -->
+    <meta name="theme-color" content="#d9534f">
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        h1 { font-size: 1.4rem; color: #d9534f; margin-top: 0; }
+        button {
+            background-color: #007aff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        button:hover { background-color: #0056b3; }
+        .info-box {
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            padding: 14px;
+            border-radius: 8px;
+            margin-top: 20px;
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+        ul {
+            padding-left: 20px;
+            margin: 8px 0 0 0;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🚨 地震・津波リアルタイム通知</h1>
+        <p>GitHub Pages + Cloudflare Workers</p>
+
+        <!-- プッシュ通知を有効化するボタン -->
+        <button id="push-btn">プッシュ通知を有効にする</button>
+
+        <!-- 最新の地震情報を表示するエリア -->
+        <div class="info-box" id="quake-info">
+            最新の地震情報を取得中...
+        </div>
+    </div>
+
+    <script>
+        // 1. ページ読み込み時に Service Worker（sw.js）を登録する
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', async () => {
+                try {
+                    const registration = await navigator.serviceWorker.register('./sw.js');
+                    console.log('Service Worker 登録成功:', registration.scope);
+                } catch (error) {
+                    console.error('Service Worker 登録失敗:', error);
+                }
+            });
+        }
+
+        // 2. 「プッシュ通知を有効にする」ボタンが押されたときの処理
+        document.getElementById('push-btn').addEventListener('click', async () => {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                alert('通知が許可されました！');
+                // ※ここに後ほどCloudflare側へ購読情報（Subscription）を送信するコードが入ります
+            } else {
+                alert('通知の許可が拒否されました。ブラウザの設定から許可してください。');
+            }
+        });
+
+        // 3. 震度コードを分かりやすい文字列に変換する関数
+        function convertScale(scale) {
+            const scaleMap = {
+                10: '震度1', 20: '震度2', 30: '震度3', 40: '震度4',
+                50: '震度5弱', 55: '震度5強', 60: '震度6弱', 65: '震度6強', 70: '震度7'
+            };
+            return scaleMap[scale] || '不明';
+        }
+
+        // 4. APIから最新の地震情報を取得して一覧表示する
+        async function fetchLatestQuake() {
+            const infoBox = document.getElementById('quake-info');
+            try {
+                // P2P地震情報 API
+                const apiUrl = 'https://api.p2pquake.net/v2/jma/quake?limit=5&offset=0&order=-1&quake_type=ScaleAndDestination&min_magnitude=1.0&max_magnitude=9.9&min_scale=10&max_scale=70';
+                
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error('API通信エラー');
+                
+                const data = await response.json();
+                
+                if (data && data.length > 0) {
+                    let htmlContent = '<strong>【直近の地震履歴（最新5件）】</strong><ul>';
+                    
+                    data.forEach(quakeData => {
+                        const eq = quakeData.earthquake;
+                        const time = eq.time;
+                        const hypocenter = eq.hypocenter.name;
+                        const magnitude = eq.hypocenter.magnitude;
+                        const maxScale = convertScale(eq.maxScale);
+                        
+                        htmlContent += `<li>
+                            ⏱ ${time} / 📍 <strong>${hypocenter}</strong><br>
+                            🔴 最大震度: ${maxScale} (M${magnitude})
+                        </li>`;
+                    });
+                    
+                    htmlContent += '</ul>';
+                    infoBox.innerHTML = htmlContent;
+                } else {
+                    infoBox.textContent = '該当する地震情報は見つかりませんでした。';
+                }
+            } catch (e) {
+                infoBox.textContent = '地震情報の取得に失敗しました。';
+                console.error(e);
+            }
+        }
+
+        // ページ読み込み時に地震情報を取得
+        fetchLatestQuake();
+    </script>
+</body>
 </html>
